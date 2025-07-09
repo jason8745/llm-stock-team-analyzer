@@ -1,0 +1,22 @@
+llm:
+  temperature: 0.5
+  max_tokens: 4096
+  retry: 3
+  max_debate_rounds: 2
+  request_timeout: 60
+  retry_delay: 60
+  max_retries: 3
+
+
+azure_openai:
+  endpoint: "https://your-endpoint.openai.azure.com/"
+  api_version: "your-api-version"  # e.g., "2024-12-01-preview"
+  deployment: "your-deployment-name"  # e.g., "gpt-4.1"
+  subscription_key: "your-subscription-key"
+  
+# Rate limiting settings
+rate_limiting:
+  enabled: true # Enable rate limiting
+  requests_per_minute: 5  # More conservative rate
+  tokens_per_minute: 20000  # Lower token limit
+  delay_between_requests: 12  # Longer delay between requests
