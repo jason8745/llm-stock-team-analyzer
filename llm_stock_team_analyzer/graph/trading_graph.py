@@ -16,6 +16,7 @@ from llm_stock_team_analyzer.agents.utils.agent_states import (
 )
 from llm_stock_team_analyzer.agents.utils.memory import FinancialSituationMemory
 from llm_stock_team_analyzer.configs.config import get_config, get_pydantic_config
+from llm_stock_team_analyzer.utils.logger import get_logger
 
 from .conditional_logic import ConditionalLogic
 from .propagation import Propagator
@@ -42,6 +43,9 @@ class TradingAgentsGraph:
         """
         self.debug = debug
         self.selected_analysts = selected_analysts
+
+        # Set up logger
+        self.logger = get_logger(__name__)
 
         # Load configuration
         if config:
@@ -157,6 +161,9 @@ class TradingAgentsGraph:
         """Run the trading agents graph for a company on a specific date."""
 
         self.ticker = company_name
+        self.logger.info(
+            f"🚀 Starting trading graph propagation for {company_name} on {trade_date}"
+        )
 
         # Initialize state
         init_agent_state = self.propagator.create_initial_state(
@@ -164,32 +171,65 @@ class TradingAgentsGraph:
         )
         args = self.propagator.get_graph_args()
 
+        self.logger.info(
+            f"📊 Initial state created with analysts: {self.selected_analysts}"
+        )
+        self.logger.debug(f"Initial state keys: {list(init_agent_state.keys())}")
+
         if self.debug:
             # Debug mode with tracing
             trace = []
+            step_count = 0
             for chunk in self.graph.stream(init_agent_state, **args):
-                if len(chunk["messages"]) == 0:
-                    pass
-                else:
-                    chunk["messages"][-1].pretty_print()
-                    trace.append(chunk)
+                step_count += 1
+                node_name = list(chunk.keys())[0] if chunk else "Unknown"
 
-            final_state = trace[-1]
+                self.logger.info(f"🔄 Step {step_count}: Executing node '{node_name}'")
+
+                # Log state transitions for debate phase
+                if node_name in ["Bull Researcher", "Bear Researcher"]:
+                    self._log_debate_state_transition(chunk, node_name, step_count)
+                elif "Analyst" in node_name:
+                    self._log_analyst_state(chunk, node_name)
+                elif node_name == "Analysis Phase Checker":
+                    self._log_phase_transition(chunk)
+                elif node_name == "Trader":
+                    self._log_trader_state(chunk)
+
+                if len(chunk.get("messages", [])) > 0:
+                    chunk["messages"][-1].pretty_print()
+
+                trace.append(chunk)
+
+            final_state = trace[-1] if trace else init_agent_state
+            self.logger.info(f"✅ Graph execution completed in {step_count} steps")
         else:
             # Standard mode without tracing
+            self.logger.info("🔄 Running graph in standard mode (no tracing)")
             final_state = self.graph.invoke(init_agent_state, **args)
+            self.logger.info("✅ Graph execution completed")
 
         # Store current state for reflection
         self.curr_state = final_state
+
+        # Log final state summary
+        self._log_final_state_summary(final_state)
 
         # Log state
         self._log_state(trade_date, final_state)
 
         # Return decision and processed signal (handle case where trader hasn't run)
         trade_decision = final_state.get("final_trade_decision", "")
-        return final_state, self.process_signal(
-            trade_decision
-        ) if trade_decision else "NO_SIGNAL"
+        signal = self.process_signal(trade_decision) if trade_decision else "NO_SIGNAL"
+
+        self.logger.info(
+            f"🎯 Final trade decision: {trade_decision[:100]}..."
+            if len(trade_decision) > 100
+            else f"🎯 Final trade decision: {trade_decision}"
+        )
+        self.logger.info(f"📶 Processed signal: {signal}")
+
+        return final_state, signal
 
     def _log_state(self, trade_date, final_state):
         """Log the final state to a JSON file."""
@@ -238,3 +278,131 @@ class TradingAgentsGraph:
     def process_signal(self, full_signal):
         """Process a signal to extract the core decision."""
         return self.signal_processor.process_signal(full_signal)
+
+    def _log_debate_state_transition(self, chunk, node_name, step_count):
+        """Log detailed information about debate state transitions."""
+        state = chunk.get(list(chunk.keys())[0], {})
+        debate_state = state.get("investment_debate_state", {})
+
+        self.logger.info(f"🗣️  {node_name} - Step {step_count}")
+        self.logger.info(
+            f"   📊 Debate counts - Bull: {debate_state.get('bull_count', 0)}, Bear: {debate_state.get('bear_count', 0)}, Total: {debate_state.get('count', 0)}"
+        )
+
+        current_response = debate_state.get("current_response", "")
+        if current_response:
+            self.logger.info(f"   💬 Current response: {current_response[:150]}...")
+
+        history = debate_state.get("history", "")
+        if history:
+            self.logger.debug(f"   📚 History length: {len(history)} characters")
+
+    def _log_analyst_state(self, chunk, node_name):
+        """Log analyst execution state."""
+        state = chunk.get(list(chunk.keys())[0], {})
+
+        self.logger.info(f"📈 {node_name} execution")
+        if "market" in node_name.lower() and state.get("market_report"):
+            self.logger.info(
+                f"   ✅ Market report generated ({len(state['market_report'])} chars)"
+            )
+        elif "news" in node_name.lower() and state.get("news_report"):
+            self.logger.info(
+                f"   ✅ News report generated ({len(state['news_report'])} chars)"
+            )
+
+    def _log_phase_transition(self, chunk):
+        """Log phase transition information."""
+        state = chunk.get(list(chunk.keys())[0], {})
+
+        self.logger.info("🔄 Analysis Phase Checker")
+
+        # Check which reports are available
+        available_reports = []
+        if state.get("market_report"):
+            available_reports.append("market")
+        if state.get("news_report"):
+            available_reports.append("news")
+
+        self.logger.info(f"   📋 Available reports: {available_reports}")
+        self.logger.info(f"   🎯 Required analysts: {self.selected_analysts}")
+
+        if state.get("_analysis_complete_announced"):
+            self.logger.info(
+                "   ✅ Analysis phase marked as complete - transitioning to debate"
+            )
+        else:
+            self.logger.warning("   ⚠️  Analysis phase not yet complete")
+
+    def _log_trader_state(self, chunk):
+        """Log trader execution state."""
+        state = chunk.get(list(chunk.keys())[0], {})
+
+        self.logger.info("💼 Trader execution")
+
+        # Check if investment plan is available
+        investment_plan = state.get("investment_plan", "")
+        if investment_plan:
+            self.logger.info(
+                f"   📋 Investment plan available ({len(investment_plan)} chars)"
+            )
+        else:
+            self.logger.warning("   ⚠️  No investment plan available for trader")
+
+        # Check debate state
+        debate_state = state.get("investment_debate_state", {})
+        if debate_state:
+            self.logger.info(
+                f"   🗣️  Debate state - Bull: {debate_state.get('bull_count', 0)}, Bear: {debate_state.get('bear_count', 0)}"
+            )
+
+    def _log_final_state_summary(self, final_state):
+        """Log a summary of the final state."""
+        self.logger.info("📋 Final State Summary:")
+
+        # Check analysts reports
+        if final_state.get("market_report"):
+            self.logger.info("   ✅ Market report: Available")
+        else:
+            self.logger.warning("   ❌ Market report: Missing")
+
+        if final_state.get("news_report"):
+            self.logger.info("   ✅ News report: Available")
+        else:
+            self.logger.warning("   ❌ News report: Missing")
+
+        # Check debate state
+        debate_state = final_state.get("investment_debate_state", {})
+        if debate_state:
+            bull_count = debate_state.get("bull_count", 0)
+            bear_count = debate_state.get("bear_count", 0)
+            total_count = debate_state.get("count", 0)
+
+            self.logger.info(
+                f"   🗣️  Debate rounds - Bull: {bull_count}, Bear: {bear_count}, Total: {total_count}"
+            )
+
+            if bull_count > 0 or bear_count > 0:
+                self.logger.info("   ✅ Debate phase: Executed")
+            else:
+                self.logger.warning("   ⚠️  Debate phase: No rounds executed")
+
+            # Check debate content
+            history = debate_state.get("history", "")
+            if history:
+                self.logger.info(f"   📚 Debate history: {len(history)} characters")
+            else:
+                self.logger.warning("   📚 Debate history: Empty")
+        else:
+            self.logger.warning("   ❌ Debate state: Missing")
+
+        # Check trader outputs
+        if final_state.get("trader_investment_plan"):
+            self.logger.info("   ✅ Trader investment plan: Available")
+        else:
+            self.logger.warning("   ❌ Trader investment plan: Missing")
+
+        if final_state.get("final_trade_decision"):
+            self.logger.info("   ✅ Final trade decision: Available")
+        else:
+            self.logger.warning("   ❌ Final trade decision: Missing")

@@ -2,11 +2,18 @@ import functools
 import json
 import time
 
+from llm_stock_team_analyzer.utils.logger import get_logger
+
 
 def create_trader(llm, memory):
     def trader_node(state, name):
+        logger = get_logger()
+
+        # Check investment plan availability
+        investment_plan = state.get("investment_plan", "")
+        logger.info(f"[TRADER] 已接收投資計劃 ({len(investment_plan)} 字符)")
+
         company_name = state["company_of_interest"]
-        investment_plan = state["investment_plan"]
         market_research_report = state["market_report"]
         news_report = state["news_report"]
 
@@ -22,18 +29,27 @@ def create_trader(llm, memory):
 
         context = {
             "role": "user",
-            "content": f"Based on a comprehensive analysis by a team of analysts, here is an investment plan tailored for {company_name}. This plan incorporates insights from current technical market trends, macroeconomic indicators, and social media sentiment. Use this plan as a foundation for evaluating your next trading decision.\n\nProposed Investment Plan: {investment_plan}\n\nLeverage these insights to make an informed and strategic decision.",
+            "content": f"基於分析師團隊的綜合分析，這是為{company_name}量身定制的投資計劃。該計劃結合了當前技術市場趨勢、宏觀經濟指標和社交媒體情緒的洞察。請將此計劃作為評估您下一個交易決策的基礎。\n\n建議投資計劃：{investment_plan}\n\n利用這些洞察做出明智和戰略性的決策。",
         }
 
         messages = [
             {
                 "role": "system",
-                "content": f"""You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. End with a firm decision and always conclude your response with 'FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**' to confirm your recommendation. Do not forget to utilize lessons from past decisions to learn from your mistakes. Here is some reflections from similar situatiosn you traded in and the lessons learned: {past_memory_str}""",
+                "content": f"""您是一位交易代理，分析市場數據以做出投資決策。基於您的分析，提供具體的買入、賣出或持有建議。以堅定的決策結束，並始終以「最終交易建議：**買入/持有/賣出**」結束您的回應以確認您的建議。不要忘記利用過去決策的經驗教訓來從錯誤中學習。以下是您在類似情況下交易的一些反思和經驗教訓：{past_memory_str}。請用中文撰寫所有分析和建議。""",
             },
             context,
         ]
 
         result = llm.invoke(messages)
+
+        # Log trader's decision with detailed information
+        logger.info(f"🎯 [TRADER] 交易員分析完成")
+        logger.info(f"[TRADER] 投資計劃總字數: {len(investment_plan)} 字符")
+        logger.info(f"[TRADER] 交易決策內容長度: {len(result.content)} 字符")
+
+        # Log trader decision in chunks to avoid truncation
+        decision_content = result.content
+        logger.info(f"[TRADER] 交易決策已完成 ({len(decision_content)} 字符)")
 
         return {
             "messages": [result],

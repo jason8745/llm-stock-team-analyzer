@@ -1,6 +1,7 @@
 # LLM Stock Team Analyzer/graph/conditional_logic.py
 
 from llm_stock_team_analyzer.agents.utils.agent_states import AgentState
+from llm_stock_team_analyzer.utils.logger import get_logger
 
 
 class ConditionalLogic:
@@ -10,6 +11,7 @@ class ConditionalLogic:
         """Initialize with configuration parameters."""
         self.max_debate_rounds = max_debate_rounds
         self.selected_analysts = selected_analysts or ["market", "news"]
+        self.logger = get_logger(__name__)
 
     def should_continue_market(self, state: AgentState):
         """Determine if market analysis should continue."""
@@ -37,7 +39,14 @@ class ConditionalLogic:
             completed_analysts.add("news")
 
         required_analysts = set(self.selected_analysts)
-        return completed_analysts == required_analysts
+        is_complete = completed_analysts == required_analysts
+
+        self.logger.info(f"🔍 Checking analyst completion:")
+        self.logger.info(f"   Required: {required_analysts}")
+        self.logger.info(f"   Completed: {completed_analysts}")
+        self.logger.info(f"   Is complete: {is_complete}")
+
+        return is_complete
 
     def check_analysis_phase_complete(self, state: AgentState) -> str:
         """Check if analysis phase is complete and should transition to debate."""
@@ -46,7 +55,12 @@ class ConditionalLogic:
                 # Mark that analysis is complete to prevent repeated announcements
                 state["_analysis_complete_announced"] = True
                 state["_phase"] = "debate"
+                self.logger.info(
+                    "✅ Analysis phase complete - transitioning to debate phase"
+                )
                 return "analysis_complete"
+
+        self.logger.info("🔄 Analysis phase continuing...")
         return "continue_analysis"
 
     def should_continue_news(self, state: AgentState):
@@ -78,8 +92,17 @@ class ConditionalLogic:
                 "current_response": "",
                 "judge_decision": "",
             }
+            self.logger.info("🆕 Initialized debate state")
 
         debate_state = state["investment_debate_state"]
+        bull_count = debate_state.get("bull_count", 0)
+        bear_count = debate_state.get("bear_count", 0)
+        total_count = debate_state.get("count", 0)
+        history = debate_state.get("history", "")
+
+        self.logger.info(
+            f"🗣️  Debate 狀態：Bull({bull_count}) Bear({bear_count}) 總計({total_count}/{self.max_debate_rounds * 2}) History({len(history)}字符)"
+        )
 
         # Enhanced safety checks to prevent infinite loops
         max_total_rounds = self.max_debate_rounds * 4  # Safety buffer
@@ -89,13 +112,8 @@ class ConditionalLogic:
 
         # Force end if too many total rounds
         if debate_state.get("count", 0) >= max_total_rounds:
-            if "investment_plan" not in state or not state["investment_plan"]:
-                debate_history = debate_state.get("history", "")
-                state["investment_plan"] = (
-                    f"Research Team Consensus (Max rounds reached):\n{debate_history}"
-                )
-            print(
-                f"⚠️  Warning: Debate exceeded maximum total rounds ({max_total_rounds})"
+            self.logger.warning(
+                f"⚠️  Warning: Debate exceeded maximum total rounds ({max_total_rounds}) - forcing to Trader"
             )
             return "Trader"
 
@@ -104,13 +122,8 @@ class ConditionalLogic:
             debate_state.get("bull_count", 0) >= max_individual_rounds
             or debate_state.get("bear_count", 0) >= max_individual_rounds
         ):
-            if "investment_plan" not in state or not state["investment_plan"]:
-                debate_history = debate_state.get("history", "")
-                state["investment_plan"] = (
-                    f"Research Team Consensus (Individual limit reached):\n{debate_history}"
-                )
-            print(
-                f"⚠️  Warning: Individual researcher exceeded maximum rounds ({max_individual_rounds})"
+            self.logger.warning(
+                f"⚠️  Warning: Individual researcher exceeded maximum rounds ({max_individual_rounds}) - forcing to Trader"
             )
             return "Trader"
 
@@ -120,17 +133,18 @@ class ConditionalLogic:
             debate_state["bull_count"] >= self.max_debate_rounds
             and debate_state["bear_count"] >= self.max_debate_rounds
         ):
-            # Create investment plan from debate history before going to trader
-            if "investment_plan" not in state or not state["investment_plan"]:
-                debate_history = debate_state.get("history", "")
-                state["investment_plan"] = f"Research Team Consensus:\n{debate_history}"
+            self.logger.info(
+                "✅ Debate completed all required rounds - proceeding to Trader"
+            )
             return "Trader"
 
         # Determine who should speak next based on current counts
-        # Start with Bull if no one has spoken yet, or if Bear has spoken more than Bull
-        if debate_state["bull_count"] == 0 or (
-            debate_state["bear_count"] > debate_state["bull_count"]
-        ):
-            return "Bull Researcher"
+        # Logic: Bull speaks first, then alternate. When counts are equal, Bull speaks next.
+        next_speaker = None
+        if debate_state["bull_count"] <= debate_state["bear_count"]:
+            next_speaker = "Bull Researcher"
         else:
-            return "Bear Researcher"
+            next_speaker = "Bear Researcher"
+
+        self.logger.info(f"🎯 下一位發言者：{next_speaker}")
+        return next_speaker

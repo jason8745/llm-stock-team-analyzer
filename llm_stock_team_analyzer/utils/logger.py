@@ -51,11 +51,11 @@ class Logger:
             logging.getLogger(logger_name).handlers = [InterceptHandler()]
         logger.configure(
             handlers=[
-                {
-                    "sink": sys.stdout,
-                    "level": log_level,
-                    "serialize": False,  # Enable JSON lines
-                },
+                # {
+                #     "sink": sys.stdout,
+                #     "level": log_level,
+                #     "serialize": False,  # Enable JSON lines
+                # },
                 {
                     "sink": log_path,
                     "level": log_level,
@@ -70,3 +70,7 @@ class Logger:
 
 Loggers = Logger()
 log = Loggers.get_logger()
+
+
+def get_logger(name=None):
+    return Loggers.get_logger()

@@ -18,9 +18,13 @@ from dateutil.relativedelta import relativedelta
 # Import our local modules
 from .googlenews_utils import getNewsData
 from .indicators import (
+    calculate_adx,
     calculate_atr,
     calculate_bollinger_bands,
+    calculate_kdj,
     calculate_macd,
+    calculate_moving_averages,
+    calculate_obv,
     calculate_rsi,
 )
 from .yfinance_utils import YFinanceService
@@ -105,70 +109,128 @@ def get_stock_stats_indicators_window(
 
     # Supported indicators with descriptions
     supported_indicators = {
-        # Moving Averages
-        "close_50_sma": (
-            "50 SMA: A medium-term trend indicator. "
-            "Usage: Identify trend direction and serve as dynamic support/resistance. "
-            "Tips: It lags price; combine with faster indicators for timely signals."
-        ),
-        "close_200_sma": (
-            "200 SMA: A long-term trend benchmark. "
-            "Usage: Confirm overall market trend and identify golden/death cross setups. "
-            "Tips: It reacts slowly; best for strategic trend confirmation rather than frequent trading entries."
+        # Moving Averages (優化參數版本)
+        "close_5_ema": (
+            "5 EMA: 超短線趨勢追蹤。"
+            "用途：順勢追價時作為動態支撐阻力和進場退場參考。"
+            "提示：極為敏感，需配合中長期均線過濾假訊號。"
         ),
         "close_10_ema": (
-            "10 EMA: A responsive short-term average. "
-            "Usage: Capture quick shifts in momentum and potential entry points. "
-            "Tips: Prone to noise in choppy markets; use alongside longer averages for filtering false signals."
+            "10 EMA: 短期趨勢動量指標。"
+            "用途：捕捉價格動量變化和短線進場時機。"
+            "提示：震盪市場易產生噪音，與長期均線配合使用。"
         ),
-        # MACD Related
+        "close_20_sma": (
+            "20 SMA: 中短期趨勢基準。"
+            "用途：取代50ma作為更敏感的中期趨勢判斷。"
+            "提示：平衡敏感度與穩定性，適合快速市場。"
+        ),
+        "close_50_sma": (
+            "50 SMA: 中期趨勢指標。"
+            "用途：識別趨勢方向並作為動態支撐/阻力。"
+            "提示：滯後於價格，適合趨勢確認。"
+        ),
+        "close_200_sma": (
+            "200 SMA: 長期趨勢基準。"
+            "用途：確認整體市場趨勢並識別黃金交叉/死亡交叉設置。"
+            "提示：反應緩慢；最適合戰略趨勢確認而非頻繁交易進入。"
+        ),
+        # MACD Related (優化參數)
         "macd": (
-            "MACD: Computes momentum via differences of EMAs. "
-            "Usage: Look for crossovers and divergence as signals of trend changes. "
-            "Tips: Confirm with other indicators in low-volatility or sideways markets."
+            "MACD標準版(12,26,9)：經典動量指標。"
+            "用途：尋找交叉和背離作為趨勢變化信號。"
+            "提示：適合背離分析。"
+        ),
+        "macd_5_13_9": (
+            "MACD快速版(5,13,9)：敏感動量指標。"
+            "用途：提早捕捉動量轉變和進場訊號。"
+            "提示：訊號更多但需要更嚴格過濾。"
         ),
         "macds": (
-            "MACD Signal: An EMA smoothing of the MACD line. "
-            "Usage: Use crossovers with the MACD line to trigger trades. "
-            "Tips: Should be part of a broader strategy to avoid false positives."
+            "MACD信號線：MACD線的EMA平滑。"
+            "用途：使用與MACD線的交叉來觸發交易。"
+            "提示：應成為更廣泛策略的一部分。"
         ),
         "macdh": (
-            "MACD Histogram: Shows the gap between the MACD line and its signal. "
-            "Usage: Visualize momentum strength and spot divergence early. "
-            "Tips: Can be volatile; complement with additional filters in fast-moving markets."
+            "MACD柱狀圖：顯示MACD線與信號線之間的差距。"
+            "用途：可視化動量強度。"
+            "提示：較為波動，需要額外過濾。"
         ),
-        # Momentum Indicators
+        # Momentum Indicators (優化參數)
         "rsi": (
-            "RSI: Measures momentum to flag overbought/oversold conditions. "
-            "Usage: Apply 70/30 thresholds and watch for divergence to signal reversals. "
-            "Tips: In strong trends, RSI may remain extreme; always cross-check with trend analysis."
+            "RSI標準版(14期)：經典動量指標。"
+            "用途：應用70/30閾值並觀察背離。"
+            "提示：在強趨勢中可能保持極值。"
         ),
-        # Volatility Indicators
+        "rsi_7": (
+            "RSI快速版(7期)：超敏感超買超賣指標。"
+            "用途：快速判斷極端點(>80/<20)和短線反轉機會。"
+            "提示：訊號頻繁，需配合其他指標確認。"
+        ),
+        # Bollinger Bands (多參數版本)
         "boll": (
-            "Bollinger Middle: A 20 SMA serving as the basis for Bollinger Bands. "
-            "Usage: Acts as a dynamic benchmark for price movement. "
-            "Tips: Combine with the upper and lower bands to effectively spot breakouts or reversals."
+            "布林帶中線：作為布林帶的基礎。"
+            "用途：作為價格運動的動態基準。"
+            "提示：與上下軌結合使用以有效發現突破或反轉。"
+        ),
+        "boll_10_1.5": (
+            "布林帶快速版(10期,1.5倍標準差)：敏感盤整突破指標。"
+            "用途：更快速抓住盤整壓縮和突破時機。"
+            "提示：訊號較多，適合短線操作。"
+        ),
+        "boll_20_2": (
+            "布林帶標準版(20期,2倍標準差)：經典價格通道。"
+            "用途：標準風險控制和突破確認。"
+            "提示：較為穩定，適合中線操作。"
         ),
         "boll_ub": (
-            "Bollinger Upper Band: Typically 2 standard deviations above the middle line. "
-            "Usage: Signals potential overbought conditions and breakout zones. "
-            "Tips: Confirm signals with other tools; prices may ride the band in strong trends."
+            "布林帶上軌：中線上方標準差軌道。"
+            "用途：超買條件和突破區域判斷。"
+            "提示：與其他工具確認信號；在強趨勢中價格可能沿著軌道運行。"
         ),
         "boll_lb": (
-            "Bollinger Lower Band: Typically 2 standard deviations below the middle line. "
-            "Usage: Indicates potential oversold conditions. "
-            "Tips: Use additional analysis to avoid false reversal signals."
+            "布林帶下軌：中線下方標準差軌道。"
+            "用途：超賣條件判斷。"
+            "提示：使用額外分析以避免虛假反轉信號。"
         ),
+        # KDJ指標
+        "kdj": (
+            "KDJ隨機指標(9期)：標準超買超賣轉折指標。"
+            "用途：轉折訊號，適合震盪突破判斷。"
+            "提示：K>80超買，K<20超賣，注意金叉死叉。"
+        ),
+        "kdj_5": (
+            "KDJ隨機指標(5期)：快速超買超賣轉折指標。"
+            "用途：比標準KDJ更敏感的轉折訊號，適合震盪突破判斷。"
+            "提示：K>80超買，K<20超賣，注意金叉死叉。"
+        ),
+        # Volatility Indicators (優化參數)
         "atr": (
-            "ATR: Averages true range to measure volatility. "
-            "Usage: Set stop-loss levels and adjust position sizes based on current market volatility. "
-            "Tips: It's a reactive measure, so use it as part of a broader risk management strategy."
+            "ATR標準版(14期)：經典波動性測量。"
+            "用途：根據當前市場波動性設置止損水平。"
+            "提示：較為穩定的風險測量。"
+        ),
+        "atr_10": (
+            "ATR快速版(10期)：敏感波動測量指標。"
+            "用途：更快反應市場波動變化，適合動態止損設定。"
+            "提示：對高波動市場反應更快。"
         ),
         # Volume-Based Indicators
         "vwma": (
-            "VWMA: A moving average weighted by volume. "
-            "Usage: Confirm trends by integrating price action with volume data. "
-            "Tips: Watch for skewed results from volume spikes; use in combination with other volume analyses."
+            "VWMA：按成交量加權的移動平均線。"
+            "用途：通過整合價格行為與成交量數據來確認趨勢。"
+            "提示：注意成交量突增導致的偏斜。"
+        ),
+        "obv": (
+            "OBV成交量平衡指標：量價關係分析。"
+            "用途：偵測成交量與價格的背離現象，確認趨勢真實性。"
+            "提示：量價背離常預示趨勢轉折。"
+        ),
+        # Trend Strength Indicators
+        "adx": (
+            "ADX平均趨勢指標：趨勢強度測量。"
+            "用途：判斷市場是否處於趨勢狀態(>25強趨勢，<20盤整)。"
+            "提示：不顯示方向只顯示強度。"
         ),
         "mfi": (
             "MFI: The Money Flow Index is a momentum indicator that uses both price and volume to measure buying and selling pressure. "
@@ -234,35 +296,99 @@ def get_stock_stats_indicators_window(
 def _calculate_indicator(data: pd.DataFrame, indicator: str) -> pd.DataFrame:
     """Calculate the specified technical indicator using our indicators.py functions"""
     try:
-        if indicator == "close_50_sma":
+        # Moving Averages (優化參數版本)
+        if indicator == "close_5_ema":
+            data["close_5_ema"] = data["close"].ewm(span=5, adjust=False).mean()
+
+        elif indicator == "close_10_ema":
+            data["close_10_ema"] = data["close"].ewm(span=10, adjust=False).mean()
+
+        elif indicator == "close_20_sma":
+            data["close_20_sma"] = data["close"].rolling(window=20).mean()
+
+        elif indicator == "close_50_sma":
             data["close_50_sma"] = data["close"].rolling(window=50).mean()
 
         elif indicator == "close_200_sma":
             data["close_200_sma"] = data["close"].rolling(window=200).mean()
 
-        elif indicator == "close_10_ema":
-            data["close_10_ema"] = data["close"].ewm(span=10, adjust=False).mean()
+        # MACD Related (優化參數)
+        elif indicator == "macd":
+            data = calculate_macd(data)  # 使用預設參數 (12,26,9)
 
-        elif indicator in ["macd", "macds", "macdh"]:
+        elif indicator == "macd_5_13_9":
+            data = calculate_macd(data, short_period=5, long_period=13, signal_period=9)
+            # 重新命名以區分不同參數版本
+            data["macd_5_13_9"] = data["macd"]
+            data["signal_5_13_9"] = data["signal_line"]
+
+        elif indicator in ["macds", "macdh"]:
             data = calculate_macd(data)
             if indicator == "macdh":
                 data["macdh"] = data["macd"] - data["signal_line"]
 
+        # RSI (優化參數)
         elif indicator == "rsi":
-            data = calculate_rsi(data)
+            data = calculate_rsi(data, window=14)  # 標準版
 
-        elif indicator in ["boll", "boll_ub", "boll_lb"]:
+        elif indicator == "rsi_7":
+            data = calculate_rsi(data, window=7)  # 快速版
+            data["rsi_7"] = data["rsi"]
+
+        # Bollinger Bands (多參數版本)
+        elif indicator == "boll":
+            data = calculate_bollinger_bands(data, window=20, num_std_dev=2)
+
+        elif indicator == "boll_10_1.5":
+            data = calculate_bollinger_bands(data, window=10, num_std_dev=1.5)
+            # 重新命名以區分不同參數版本
+            data["boll_10_1.5_middle"] = data["bollinger_middle"]
+            data["boll_10_1.5_upper"] = data["bollinger_upper"]
+            data["boll_10_1.5_lower"] = data["bollinger_lower"]
+
+        elif indicator == "boll_20_2":
+            data = calculate_bollinger_bands(data, window=20, num_std_dev=2)
+            # 重新命名以區分不同參數版本
+            data["boll_20_2_middle"] = data["bollinger_middle"]
+            data["boll_20_2_upper"] = data["bollinger_upper"]
+            data["boll_20_2_lower"] = data["bollinger_lower"]
+
+        elif indicator in ["boll_ub", "boll_lb"]:
             data = calculate_bollinger_bands(data)
 
-        elif indicator == "atr":
-            data = calculate_atr(data)
+        # KDJ指標
+        elif indicator == "kdj":
+            data = calculate_kdj(data, window=9)  # 標準版
 
+        elif indicator == "kdj_5":
+            data = calculate_kdj(data, window=5)  # 快速版
+            # 重新命名以區分不同參數版本
+            data["kdj_5_k"] = data["kdj_k"]
+            data["kdj_5_d"] = data["kdj_d"]
+            data["kdj_5_j"] = data["kdj_j"]
+
+        # ATR (優化參數)
+        elif indicator == "atr":
+            data = calculate_atr(data, window=14)  # 標準版
+
+        elif indicator == "atr_10":
+            data = calculate_atr(data, window=10)  # 快速版
+            data["atr_10"] = data["atr"]
+
+        # Volume-Based Indicators
         elif indicator == "vwma":
             # Calculate VWMA (Volume Weighted Moving Average)
             window = 20
             data["vwma"] = (data["close"] * data["volume"]).rolling(
                 window=window
             ).sum() / data["volume"].rolling(window=window).sum()
+
+        elif indicator == "obv":
+            data = calculate_obv(data)
+
+        # Trend Strength Indicators
+        elif indicator == "adx":
+            data = calculate_adx(data, window=14)
 
         elif indicator == "mfi":
             # Calculate Money Flow Index (basic implementation)
@@ -294,7 +420,20 @@ def _calculate_indicator(data: pd.DataFrame, indicator: str) -> pd.DataFrame:
 def _get_indicator_values(row: pd.Series, indicator: str) -> str:
     """Extract and format the indicator values from a data row"""
     try:
-        if indicator == "close_50_sma":
+        # Moving Averages
+        if indicator == "close_5_ema":
+            value = row.get("close_5_ema", "N/A")
+            return f"{value:.2f}" if pd.notna(value) else "N/A"
+
+        elif indicator == "close_10_ema":
+            value = row.get("close_10_ema", "N/A")
+            return f"{value:.2f}" if pd.notna(value) else "N/A"
+
+        elif indicator == "close_20_sma":
+            value = row.get("close_20_sma", "N/A")
+            return f"{value:.2f}" if pd.notna(value) else "N/A"
+
+        elif indicator == "close_50_sma":
             value = row.get("close_50_sma", "N/A")
             return f"{value:.2f}" if pd.notna(value) else "N/A"
 
@@ -302,13 +441,20 @@ def _get_indicator_values(row: pd.Series, indicator: str) -> str:
             value = row.get("close_200_sma", "N/A")
             return f"{value:.2f}" if pd.notna(value) else "N/A"
 
-        elif indicator == "close_10_ema":
-            value = row.get("close_10_ema", "N/A")
-            return f"{value:.2f}" if pd.notna(value) else "N/A"
-
+        # MACD Related
         elif indicator == "macd":
             macd_val = row.get("macd", "N/A")
-            return f"{macd_val:.4f}" if pd.notna(macd_val) else "N/A"
+            signal_val = row.get("signal_line", "N/A")
+            if pd.notna(macd_val) and pd.notna(signal_val):
+                return f"MACD: {macd_val:.4f}, Signal: {signal_val:.4f}"
+            return "N/A"
+
+        elif indicator == "macd_5_13_9":
+            macd_val = row.get("macd_5_13_9", "N/A")
+            signal_val = row.get("signal_5_13_9", "N/A")
+            if pd.notna(macd_val) and pd.notna(signal_val):
+                return f"MACD(5,13,9): {macd_val:.4f}, Signal: {signal_val:.4f}"
+            return "N/A"
 
         elif indicator == "macds":
             signal_val = row.get("signal_line", "N/A")
@@ -318,13 +464,35 @@ def _get_indicator_values(row: pd.Series, indicator: str) -> str:
             macdh_val = row.get("macdh", "N/A")
             return f"{macdh_val:.4f}" if pd.notna(macdh_val) else "N/A"
 
+        # RSI
         elif indicator == "rsi":
             rsi_val = row.get("rsi", "N/A")
             return f"{rsi_val:.2f}" if pd.notna(rsi_val) else "N/A"
 
+        elif indicator == "rsi_7":
+            rsi_val = row.get("rsi_7", "N/A")
+            return f"{rsi_val:.2f}" if pd.notna(rsi_val) else "N/A"
+
+        # Bollinger Bands
         elif indicator == "boll":
             value = row.get("bollinger_middle", "N/A")
             return f"{value:.2f}" if pd.notna(value) else "N/A"
+
+        elif indicator == "boll_10_1.5":
+            middle = row.get("boll_10_1.5_middle", "N/A")
+            upper = row.get("boll_10_1.5_upper", "N/A")
+            lower = row.get("boll_10_1.5_lower", "N/A")
+            if all(pd.notna(val) for val in [middle, upper, lower]):
+                return f"Middle: {middle:.2f}, Upper: {upper:.2f}, Lower: {lower:.2f}"
+            return "N/A"
+
+        elif indicator == "boll_20_2":
+            middle = row.get("boll_20_2_middle", "N/A")
+            upper = row.get("boll_20_2_upper", "N/A")
+            lower = row.get("boll_20_2_lower", "N/A")
+            if all(pd.notna(val) for val in [middle, upper, lower]):
+                return f"Middle: {middle:.2f}, Upper: {upper:.2f}, Lower: {lower:.2f}"
+            return "N/A"
 
         elif indicator == "boll_ub":
             value = row.get("bollinger_upper", "N/A")
@@ -334,12 +502,44 @@ def _get_indicator_values(row: pd.Series, indicator: str) -> str:
             value = row.get("bollinger_lower", "N/A")
             return f"{value:.2f}" if pd.notna(value) else "N/A"
 
+        # KDJ
+        elif indicator == "kdj":
+            k_val = row.get("kdj_k", "N/A")
+            d_val = row.get("kdj_d", "N/A")
+            j_val = row.get("kdj_j", "N/A")
+            if all(pd.notna(val) for val in [k_val, d_val, j_val]):
+                return f"K: {k_val:.2f}, D: {d_val:.2f}, J: {j_val:.2f}"
+            return "N/A"
+
+        elif indicator == "kdj_5":
+            k_val = row.get("kdj_5_k", "N/A")
+            d_val = row.get("kdj_5_d", "N/A")
+            j_val = row.get("kdj_5_j", "N/A")
+            if all(pd.notna(val) for val in [k_val, d_val, j_val]):
+                return f"K: {k_val:.2f}, D: {d_val:.2f}, J: {j_val:.2f}"
+            return "N/A"
+
+        # ATR
         elif indicator == "atr":
             value = row.get("atr", "N/A")
             return f"{value:.2f}" if pd.notna(value) else "N/A"
 
+        elif indicator == "atr_10":
+            value = row.get("atr_10", "N/A")
+            return f"{value:.2f}" if pd.notna(value) else "N/A"
+
+        # Volume-Based
         elif indicator == "vwma":
             value = row.get("vwma", "N/A")
+            return f"{value:.2f}" if pd.notna(value) else "N/A"
+
+        elif indicator == "obv":
+            value = row.get("obv", "N/A")
+            return f"{value:.0f}" if pd.notna(value) else "N/A"
+
+        # Trend Strength
+        elif indicator == "adx":
+            value = row.get("adx", "N/A")
             return f"{value:.2f}" if pd.notna(value) else "N/A"
 
         elif indicator == "mfi":

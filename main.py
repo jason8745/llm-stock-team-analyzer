@@ -26,6 +26,10 @@ from rich.text import Text
 
 from llm_stock_team_analyzer.configs.config import get_config
 from llm_stock_team_analyzer.graph.trading_graph import TradingAgentsGraph
+from llm_stock_team_analyzer.utils.logger import Loggers, get_logger
+
+# Initialize logger
+Loggers.init_config()
 
 console = Console()
 
@@ -398,6 +402,16 @@ def run_analysis(ticker: str, analysis_date: str) -> Dict[str, Any]:
 
     console.print()
     console.print("[bold green]✅ Analysis Complete![/bold green]")
+
+    # Debug: Log final state keys
+    logger = get_logger()
+    logger.info(f"[FINAL STATE] Keys available: {list(final_state.keys())}")
+    if "investment_plan" in final_state:
+        logger.info(
+            f"[FINAL STATE] Investment plan length: {len(final_state['investment_plan'])}"
+        )
+    else:
+        logger.info("[FINAL STATE] No investment_plan found in final state")
 
     return final_state
 
