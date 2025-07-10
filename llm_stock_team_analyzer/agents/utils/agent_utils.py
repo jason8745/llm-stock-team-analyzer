@@ -115,3 +115,21 @@ class Toolkit:
         google_news_results = interface.get_google_news(query, curr_date, 7)
 
         return google_news_results
+
+    @staticmethod
+    @tool
+    def get_company_info(
+        symbol: Annotated[str, "ticker symbol of the company"],
+    ) -> str:
+        """
+        Retrieve basic company information for a given ticker symbol.
+        Args:
+            symbol (str): Ticker symbol of the company, e.g. AAPL, TSM, 3017.TW
+        Returns:
+            str: Company information including name, sector, industry, and other basic details.
+        """
+        try:
+            stock_info = interface.get_company_info(symbol)
+            return stock_info
+        except Exception as e:
+            return f"Error retrieving company info for {symbol}: {str(e)}"

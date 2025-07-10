@@ -9,12 +9,19 @@ def create_news_analyst(llm, toolkit):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
 
-        # Use only available news tools
-        tools = [toolkit.get_google_news]
+        # Add company info tool to get correct company name
+        tools = [toolkit.get_company_info, toolkit.get_google_news]
 
         system_message = (
             "您是一位新聞研究員，負責使用Google新聞數據分析過去一週的最新新聞和趨勢。 "
-            "重要：僅調用get_google_news一次，使用綜合搜索查詢（例如，'AAPL Apple股票財報新聞'） "
+            "重要步驟： "
+            "1. 首先調用get_company_info獲取正確的英文公司名稱和基本信息 "
+            "2. 然後使用英文公司名稱調用get_google_news一次，使用綜合搜索查詢 "
+            "重要：請直接使用英文公司名稱進行搜索，不要翻譯成中文！ "
+            "搜索格式範例： "
+            "- 對於AAPL：'AAPL Apple Inc stock news earnings' "
+            "- 對於3017.TW：'3017.TW Asia Vital Components stock news earnings' "
+            "- 對於2330.TW：'2330.TW Taiwan Semiconductor stock news earnings' "
             "以獲取分析所需的所有相關新聞。不要多次調用同一工具。 "
             "一次調用get_google_news即可返回整個日期範圍的綜合結果。 "
             "請撰寫一份關於當前世界狀況的綜合中文報告，該報告與交易和宏觀經濟相關。 "

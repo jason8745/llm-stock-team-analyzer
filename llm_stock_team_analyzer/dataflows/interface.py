@@ -607,3 +607,41 @@ def get_stock_price_data(
 
     except Exception as e:
         return f"Error retrieving data for {symbol}: {str(e)}"
+
+
+def get_company_info(symbol: str) -> str:
+    """
+    Get basic company information for the specified symbol.
+
+    Args:
+        symbol: Stock ticker symbol
+
+    Returns:
+        Formatted string with company information
+    """
+    try:
+        # Get company info using our yfinance utilities
+        stock_info = YFinanceService.get_stock_info(symbol)
+
+        # Format the company information
+        info_lines = [
+            f"# Company Information for {symbol.upper()}",
+            f"Company Name: {stock_info.short_name or 'N/A'}",
+            f"Sector: {stock_info.sector or 'N/A'}",
+            f"Industry: {stock_info.industry or 'N/A'}",
+            f"Country: {stock_info.country or 'N/A'}",
+        ]
+
+        if stock_info.market_cap:
+            info_lines.append(f"Market Cap: ${stock_info.market_cap:,.0f}")
+
+        if stock_info.pe_ratio:
+            info_lines.append(f"P/E Ratio: {stock_info.pe_ratio:.2f}")
+
+        if stock_info.website:
+            info_lines.append(f"Website: {stock_info.website}")
+
+        return "\n".join(info_lines)
+
+    except Exception as e:
+        return f"Error retrieving company info for {symbol}: {str(e)}"

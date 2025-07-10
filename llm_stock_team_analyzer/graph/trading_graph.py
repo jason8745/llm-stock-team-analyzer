@@ -152,6 +152,7 @@ class TradingAgentsGraph:
             ),
             "news": ToolNode(
                 [
+                    self.toolkit.get_company_info,
                     self.toolkit.get_google_news,
                 ]
             ),
