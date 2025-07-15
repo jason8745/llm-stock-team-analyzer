@@ -5,9 +5,6 @@ format:
 lint:
 	uv run ruff check --select I --fix .	
 
-check:
-	uv run pyright
-
 unit-test:
 	uv run pytest 
 

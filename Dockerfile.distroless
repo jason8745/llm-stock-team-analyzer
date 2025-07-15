@@ -1,0 +1,31 @@
+# Multi-stage build with distroless for better security
+FROM python:3.12-slim as builder
+
+# Install uv for fast Python package management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies to a specific location
+RUN uv sync --frozen --no-cache --no-dev
+
+# Production stage using distroless
+FROM gcr.io/distroless/python3-debian12:latest
+
+# Copy the virtual environment from builder stage
+COPY --from=builder /app/.venv /app/.venv
+
+# Copy source code
+COPY . /app
+
+# Set working directory and Python path
+WORKDIR /app
+ENV PYTHONPATH=/app
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Run the main CLI application
+CMD ["python", "main.py"]
