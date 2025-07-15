@@ -4,7 +4,7 @@
 
 ## 測試結構
 
-```
+```text
 tests/
 ├── test_indicators.py    # 技術指標計算測試
 ├── test_utils.py        # yfinance工具函數測試
@@ -24,13 +24,15 @@ PYTHONPATH=. pytest tests/test_indicators.py -v
 ## 測試覆蓋
 
 ### 技術指標 (test_indicators.py)
+
 - ✅ 移動平均線 (Moving Averages)
-- ✅ 布林通道 (Bollinger Bands) 
+- ✅ 布林通道 (Bollinger Bands)
 - ✅ RSI (相對強弱指標)
 - ✅ MACD (指數平滑移動平均線)
 - ✅ 邊界條件測試 (空資料、單一值、常數值)
 
 ### 工具函數 (test_utils.py)
+
 - ✅ 股票代碼驗證
 - ✅ 基本錯誤處理
 
@@ -44,6 +46,7 @@ PYTHONPATH=. pytest tests/test_indicators.py -v
 ## 未來擴展
 
 可以考慮添加的測試：
+
 - 更多技術指標 (CCI, KDJ, ADX等)
 - 資料介面測試 (有適當的mock)
 - Agent功能測試 (單元測試級別)

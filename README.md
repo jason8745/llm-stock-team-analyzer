@@ -92,11 +92,11 @@ graph TD
 
 ### Requirements
 
-- Python 3.12+
+- Python 3.12+ OR Docker
 - Azure OpenAI API access
 - Network connection (for Yahoo Finance and Google News data)
 
-### Installation
+### Option 1: Local Installation
 
 1. **Clone the repository**
 
@@ -129,6 +129,26 @@ graph TD
    uv run python main.py
    ```
 
+### Option 2: Docker (Recommended)
+
+1. **Clone and build**
+
+   ```bash
+   git clone https://github.com/yourusername/llm-stock-team-analyzer.git
+   cd llm-stock-team-analyzer
+   ./build.sh
+   ```
+
+2. **Configure and run**
+
+   ```bash
+   # Copy and edit config
+   cp llm_stock_team_analyzer/configs/config.example.yaml my-config.yaml
+   
+   # Run with custom config
+   ./run.sh --config ./my-config.yaml --data ./output
+   ```
+
 ### Configuration
 
 Edit `llm_stock_team_analyzer/configs/config.yaml`:
@@ -152,6 +172,73 @@ rate_limiting:
   requests_per_minute: 10
   tokens_per_minute: 40000
   delay_between_requests: 6
+```
+
+## 🐳 Docker Deployment
+
+### Build Docker Image
+
+```bash
+# Build latest version
+./build.sh
+
+# Build specific version
+./build.sh v1.0.0
+
+# Build secure version (distroless)
+./build.sh --secure
+```
+
+### Run with Docker
+
+**Using run script (recommended):**
+
+```bash
+# Basic run
+./run.sh
+
+# With custom config
+./run.sh --config ./my-config.yaml
+
+# With data directory
+./run.sh --data ./output
+
+# Run in background
+./run.sh --detach
+```
+
+**Using docker commands directly:**
+
+```bash
+# Basic run
+docker run -it llm-stock-analyzer:latest
+
+# With custom config
+docker run -it \
+  -v $(pwd)/llm_stock_team_analyzer/configs/config.yaml:/app/llm_stock_team_analyzer/configs/config.yaml \
+  llm-stock-analyzer:latest
+
+# With data directory and environment variables
+docker run -it \
+  -v $(pwd)/output:/app/data \
+  -e OPENAI_API_KEY="your-api-key" \
+  llm-stock-analyzer:latest
+```
+
+### Docker Management
+
+```bash
+# List images
+docker images llm-stock-analyzer
+
+# View running containers
+docker ps
+
+# Stop container
+docker stop <container-name>
+
+# Remove image
+docker rmi llm-stock-analyzer:latest
 ```
 
 ## 🏗️ System Architecture

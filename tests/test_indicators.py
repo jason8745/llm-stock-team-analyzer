@@ -3,9 +3,7 @@ Unit tests for technical indicators.
 Focus on core functionality and edge cases.
 """
 
-import numpy as np
 import pandas as pd
-import pytest
 
 from llm_stock_team_analyzer.dataflows.indicators import (
     calculate_bollinger_bands,
