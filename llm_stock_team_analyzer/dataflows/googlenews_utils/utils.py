@@ -2,7 +2,6 @@
 Google News scraping utilities - Refactored for better maintainability and error handling.
 """
 
-import json
 import random
 import time
 from datetime import datetime
@@ -15,7 +14,6 @@ from bs4 import BeautifulSoup
 from tenacity import (
     retry,
     retry_if_exception_type,
-    retry_if_result,
     stop_after_attempt,
     wait_exponential,
 )

@@ -23,7 +23,6 @@ from .indicators import (
     calculate_bollinger_bands,
     calculate_kdj,
     calculate_macd,
-    calculate_moving_averages,
     calculate_obv,
     calculate_rsi,
 )

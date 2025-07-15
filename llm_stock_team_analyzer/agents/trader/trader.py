@@ -1,6 +1,4 @@
 import functools
-import json
-import time
 
 from llm_stock_team_analyzer.utils.logger import get_logger
 
@@ -43,7 +41,7 @@ def create_trader(llm, memory):
         result = llm.invoke(messages)
 
         # Log trader's decision with detailed information
-        logger.info(f"🎯 [TRADER] 交易員分析完成")
+        logger.info("🎯 [TRADER] 交易員分析完成")
         logger.info(f"[TRADER] 投資計劃總字數: {len(investment_plan)} 字符")
         logger.info(f"[TRADER] 交易決策內容長度: {len(result.content)} 字符")
 

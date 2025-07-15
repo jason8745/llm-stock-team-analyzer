@@ -1,5 +1,4 @@
 import logging
-import sys
 import typing as t
 from types import FrameType
 

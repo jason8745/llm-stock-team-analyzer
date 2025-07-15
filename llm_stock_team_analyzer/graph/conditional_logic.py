@@ -41,7 +41,7 @@ class ConditionalLogic:
         required_analysts = set(self.selected_analysts)
         is_complete = completed_analysts == required_analysts
 
-        self.logger.info(f"🔍 Checking analyst completion:")
+        self.logger.info("🔍 Checking analyst completion:")
         self.logger.info(f"   Required: {required_analysts}")
         self.logger.info(f"   Completed: {completed_analysts}")
         self.logger.info(f"   Is complete: {is_complete}")

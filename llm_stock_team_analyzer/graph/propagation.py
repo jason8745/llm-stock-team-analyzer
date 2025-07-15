@@ -3,7 +3,6 @@
 from typing import Any, Dict
 
 from llm_stock_team_analyzer.agents.utils.agent_states import (
-    AgentState,
     InvestDebateState,
 )
 

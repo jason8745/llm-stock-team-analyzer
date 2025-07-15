@@ -5,7 +5,7 @@ Refactored for better maintainability and error handling.
 
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Union
 
 import pandas as pd
 import yfinance as yf

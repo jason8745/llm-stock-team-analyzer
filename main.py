@@ -5,7 +5,6 @@ LLM Stock Team Analyzer - Main CLI Entry Point
 A modernized, local-only stock analysis system using AI agents.
 """
 
-import os
 import sys
 import time
 from datetime import datetime
@@ -17,12 +16,9 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from rich.console import Console
-from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
-from rich.spinner import Spinner
-from rich.text import Text
 
 from llm_stock_team_analyzer.configs.config import get_config
 from llm_stock_team_analyzer.graph.trading_graph import TradingAgentsGraph

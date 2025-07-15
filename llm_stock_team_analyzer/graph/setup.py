@@ -1,6 +1,6 @@
 # LLM Stock Team Analyzer/graph/setup.py
 
-from typing import Any, Dict
+from typing import Dict
 
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
